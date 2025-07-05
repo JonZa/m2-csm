@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd"
+         bootstrap="../../../../../dev/tests/unit/framework/bootstrap.php"
+         cacheResultFile="../../../../../var/cache/phpunit.cache"
+         colors="true"
+         beStrictAboutTestsThatDoNotTestAnything="false"
+         beStrictAboutOutputDuringTests="true"
+         beStrictAboutTodoAnnotatedTests="true"
+         verbose="true">
+    <testsuites>
+        <testsuite name="CustomShipping_Method_Unit_Tests">
+            <directory>.</directory>
+        </testsuite>
+    </testsuites>
+    <coverage>
+        <include>
+            <directory suffix=".php">../../Model</directory>
+        </include>
+        <exclude>
+            <directory>.</directory>
+            <file>../../registration.php</file>
+        </exclude>
+        <report>
+            <html outputDirectory="../../../../../var/phpunit/coverage/CustomShipping_Method"/>
+            <text outputFile="php://stdout" showUncoveredFiles="false"/>
+        </report>
+    </coverage>
+    <logging>
+        <junit outputFile="../../../../../var/phpunit/CustomShipping_Method_junit.xml"/>
+    </logging>
+    <php>
+        <ini name="memory_limit" value="-1"/>
+        <ini name="date.timezone" value="America/Los_Angeles"/>
+        <ini name="xdebug.max_nesting_level" value="200"/>
+    </php>
+</phpunit>

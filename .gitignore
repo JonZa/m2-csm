@@ -1,0 +1,9 @@
+var/
+generated/
+pub/static/
+pub/media/catalog/product/cache/
+vendor/
+.idea/
+*.log
+.DS_Store
+node_modules/

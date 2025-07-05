@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <carriers>
+            <customshipping>
+                <active>1</active>
+                <model>CustomShipping\Method\Model\Carrier\CustomShipping</model>
+                <name>Custom Shipping Method</name>
+                <title>Custom Shipping</title>
+                <type>I</type>
+                <price>10.00</price>
+                <handling_type>F</handling_type>
+                <handling_fee>0</handling_fee>
+                <specificerrmsg>This shipping method is not available. To use this shipping method, please contact us.</specificerrmsg>
+                <sallowspecific>0</sallowspecific>
+                <sort_order>10</sort_order>
+                <weight_based>0</weight_based>
+                <price_per_kg>2.50</price_per_kg>
+                <min_order_amount>0</min_order_amount>
+                <max_order_amount>0</max_order_amount>
+                <free_shipping_threshold>100</free_shipping_threshold>
+                <max_weight>50</max_weight>
+            </customshipping>
+        </carriers>
+    </default>
+</config>

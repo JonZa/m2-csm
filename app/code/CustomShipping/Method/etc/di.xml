@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <!-- Service Contract Preferences -->
+    <preference for="CustomShipping\Method\Api\ShippingCalculatorInterface" 
+                type="CustomShipping\Method\Model\ShippingCalculator" />
+    
+    <preference for="CustomShipping\Method\Api\Data\ShippingRateInterface" 
+                type="CustomShipping\Method\Model\Data\ShippingRate" />
+
+    <!-- Enhanced Carrier Configuration -->
+    <type name="CustomShipping\Method\Model\Carrier\CustomShipping">
+        <arguments>
+            <argument name="shippingCalculator" xsi:type="object">CustomShipping\Method\Api\ShippingCalculatorInterface</argument>
+        </arguments>
+    </type>
+
+    <!-- Virtual Type for Rate Cache -->
+    <virtualType name="CustomShipping\Method\Cache\Type\ShippingRate" type="Magento\Framework\Cache\Frontend\Decorator\TagScope">
+        <arguments>
+            <argument name="backend" xsi:type="object">Magento\Framework\App\Cache\Type\FrontendPool</argument>
+            <argument name="backendOptions" xsi:type="array">
+                <item name="cache_dir" xsi:type="string">var</item>
+            </argument>
+            <argument name="identifier" xsi:type="string">custom_shipping_rates</argument>
+        </arguments>
+    </virtualType>
+
+    <!-- Cache Configuration - Inject into ShippingRateCache -->
+    <type name="CustomShipping\Method\Model\Cache\ShippingRateCache">
+        <arguments>
+            <argument name="logger" xsi:type="object">CustomShipping\Method\Logger</argument>
+        </arguments>
+    </type>
+
+    <!-- Logging Configuration -->
+    <virtualType name="CustomShipping\Method\Logger\Handler" type="Magento\Framework\Logger\Handler\Base">
+        <arguments>
+            <argument name="fileName" xsi:type="string">/var/log/custom_shipping.log</argument>
+        </arguments>
+    </virtualType>
+
+    <virtualType name="CustomShipping\Method\Logger" type="Magento\Framework\Logger\Monolog">
+        <arguments>
+            <argument name="name" xsi:type="string">customShipping</argument>
+            <argument name="handlers" xsi:type="array">
+                <item name="system" xsi:type="object">CustomShipping\Method\Logger\Handler</item>
+            </argument>
+        </arguments>
+    </virtualType>
+
+    <!-- Inject custom logger into calculator -->
+    <type name="CustomShipping\Method\Model\ShippingCalculator">
+        <arguments>
+            <argument name="logger" xsi:type="object">CustomShipping\Method\Logger</argument>
+        </arguments>
+    </type>
+</config>
