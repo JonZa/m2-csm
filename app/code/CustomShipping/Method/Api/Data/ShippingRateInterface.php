@@ -3,6 +3,7 @@
  * Shipping Rate Data Interface
  * Represents a calculated shipping rate with metadata
  */
+declare(strict_types=1);
 
 namespace CustomShipping\Method\Api\Data;
 

@@ -3,7 +3,7 @@
     <default>
         <carriers>
             <customshipping>
-                <active>1</active>
+                <active>0</active>
                 <model>CustomShipping\Method\Model\Carrier\CustomShipping</model>
                 <name>Custom Shipping Method</name>
                 <title>Custom Shipping</title>
@@ -20,6 +20,7 @@
                 <max_order_amount>0</max_order_amount>
                 <free_shipping_threshold>100</free_shipping_threshold>
                 <max_weight>50</max_weight>
+                <cache_lifetime>3600</cache_lifetime>
             </customshipping>
         </carriers>
     </default>

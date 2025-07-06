@@ -3,11 +3,13 @@
  * Shipping Rate Cache Service
  * Handles caching of calculated shipping rates
  */
+declare(strict_types=1);
 
 namespace CustomShipping\Method\Model\Cache;
 
 use Magento\Framework\App\Cache\Frontend\Pool;
 use Magento\Framework\App\Cache\TypeListInterface;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Cache\FrontendInterface;
 use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Quote\Model\Quote\Address\RateRequest;
@@ -24,9 +26,9 @@ class ShippingRateCache
     const TYPE_IDENTIFIER = 'custom_shipping_rates';
 
     /**
-     * Cache lifetime in seconds (1 hour)
+     * Default cache lifetime in seconds (1 hour)
      */
-    const CACHE_LIFETIME = 3600;
+    const DEFAULT_CACHE_LIFETIME = 3600;
 
     /**
      * @var FrontendInterface
@@ -44,18 +46,26 @@ class ShippingRateCache
     private $logger;
 
     /**
+     * @var ScopeConfigInterface
+     */
+    private $scopeConfig;
+
+    /**
      * @param Pool $cacheFrontendPool
      * @param SerializerInterface $serializer
      * @param LoggerInterface $logger
+     * @param ScopeConfigInterface $scopeConfig
      */
     public function __construct(
         Pool $cacheFrontendPool,
         SerializerInterface $serializer,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        ScopeConfigInterface $scopeConfig
     ) {
         $this->cache = $cacheFrontendPool->get(\Magento\Framework\App\Cache\Type\Config::TYPE_IDENTIFIER);
         $this->serializer = $serializer;
         $this->logger = $logger;
+        $this->scopeConfig = $scopeConfig;
     }
 
     /**
@@ -118,7 +128,7 @@ class ShippingRateCache
                 $serializedData,
                 $cacheKey,
                 $tags,
-                self::CACHE_LIFETIME
+                $this->getCacheLifetime()
             );
 
             if ($result) {
@@ -229,5 +239,20 @@ class ShippingRateCache
             'dest_postcode' => $request->getDestPostcode(),
             'store_id' => $request->getStoreId()
         ];
+    }
+
+    /**
+     * Get cache lifetime from configuration
+     *
+     * @return int
+     */
+    private function getCacheLifetime(): int
+    {
+        $configuredLifetime = $this->scopeConfig->getValue(
+            'carriers/customshipping/cache_lifetime',
+            \Magento\Store\Model\ScopeInterface::SCOPE_STORE
+        );
+        
+        return (int)($configuredLifetime ?: self::DEFAULT_CACHE_LIFETIME);
     }
 }

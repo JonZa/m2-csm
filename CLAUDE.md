@@ -14,123 +14,144 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a Magento 2 project containing a custom shipping method module (`CustomShipping_Method`) that demonstrates enterprise-grade extension development. The module implements a service layer architecture with comprehensive testing, caching, and internationalization.
+This is a **Magento 2 shipping extension** called CustomShipping Method that provides intelligent, configurable shipping calculations beyond basic flat rates. It's designed as a production-ready shipping solution with enterprise-level features.
 
-## Common Development Commands
-
-### Magento Module Development
-```bash
-# Enable the shipping module
-php bin/magento module:enable CustomShipping_Method
-
-# Run setup upgrade after module changes
-php bin/magento setup:upgrade
-
-# Clear cache (essential during development)
-php bin/magento cache:clean
-
-# Generate DI compilation (production)
-php bin/magento setup:di:compile
-
-# Deploy static content (production)
-php bin/magento setup:static-content:deploy
-```
+## Development Commands
 
 ### Testing
 ```bash
-# Run shipping module tests
-./app/code/CustomShipping/Method/run-tests.sh
+# Run unit tests
+cd app/code/CustomShipping/Method/Test/Unit && phpunit --configuration phpunit.xml
 
-# Run specific test class
-phpunit -c app/code/CustomShipping/Method/Test/Unit/phpunit.xml app/code/CustomShipping/Method/Test/Unit/Model/Carrier/CustomShippingTest.php
+# Run tests with coverage
+cd app/code/CustomShipping/Method/Test/Unit && phpunit --configuration phpunit.xml --coverage-text
 
-# Run with coverage report
-phpunit -c app/code/CustomShipping/Method/Test/Unit/phpunit.xml --coverage-html var/phpunit/coverage/
+# Quick test runner script
+./run-tests.sh
 ```
 
-### Git Workflow
+### Magento Development
 ```bash
-# Standard commit with Claude Code attribution
-git commit -m "Brief description of changes
+# Clear cache (required after configuration changes)
+php bin/magento cache:flush
 
-🤖 Generated with [Claude Code](https://claude.ai/code)
+# Recompile dependency injection (required after adding new services)
+php bin/magento setup:di:compile
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+# Deploy static content (for production)
+php bin/magento setup:static-content:deploy
+
+# Enable module (if disabled)
+php bin/magento module:enable CustomShipping_Method
+
+# Check module status
+php bin/magento module:status CustomShipping_Method
 ```
 
-## Architecture Overview
+## Architecture
 
-### Service Layer Pattern
-The shipping module follows a service-oriented architecture:
+### Core Components
 
-- **Api/ShippingCalculatorInterface.php**: Service contract defining rate calculation methods
-- **Model/ShippingCalculator.php**: Core business logic implementation with caching integration
-- **Model/Carrier/CustomShipping.php**: Magento carrier adapter that delegates to service layer
+1. **Main Carrier Class**: `Model/Carrier/CustomShipping.php`
+   - Implements `\Magento\Shipping\Model\Carrier\AbstractCarrier`
+   - Entry point for all shipping calculations
+   - Handles rate collection and validation
 
-### Dependency Injection Configuration
-All services are configured in `etc/di.xml` with proper preferences and virtual types for:
-- Service contract implementations
-- Cache frontend configuration 
-- Custom logging handlers
+2. **Service Contracts**: `Api/` directory
+   - `ShippingCalculatorInterface.php` - Core calculation contract
+   - `Data/ShippingRateInterface.php` - Rate data model contract
+   - Defines public API for extensibility
 
-### Caching Strategy
-Intelligent rate caching implemented via:
-- **Model/Cache/ShippingRateCache.php**: Dedicated cache service with 1-hour TTL
-- Cache keys based on weight, value, destination, store, and customer group
-- Geographic tagging for smart cache invalidation
+3. **Business Logic**: `Model/ShippingCalculator.php`
+   - Implements pricing models (flat rate, weight-based, free shipping)
+   - Validates business rules (order limits, weight restrictions)
+   - Handles all shipping calculation logic
 
-### Testing Architecture
-Comprehensive PHPUnit test suite in `Test/Unit/` with:
-- Proper dependency mocking using PHPUnit mock objects
-- 12 test scenarios covering all business logic paths
-- Dedicated test configuration in `Test/Unit/phpunit.xml`
+4. **Caching Layer**: `Model/Cache/ShippingRateCache.php`
+   - Optimizes performance for repeated calculations
+   - Uses Magento's cache framework
 
-## Module-Specific Development Notes
+### Configuration System
 
-### Configuration Management
-- Admin configuration in `etc/adminhtml/system.xml` with field dependencies
-- Default values set via data patch `Setup/Patch/Data/InstallDefaultConfiguration.php`
-- ACL resources defined in `etc/acl.xml` for security
+- **Admin Configuration**: `etc/adminhtml/system.xml`
+- **Default Values**: `etc/config.xml`
+- **Dependency Injection**: `etc/di.xml`
+- **Module Declaration**: `etc/module.xml`
 
-### Rate Calculation Logic
-The shipping calculator supports:
-- Flat rate pricing (base price only)
-- Weight-based pricing (base + weight × rate per kg)
-- Free shipping thresholds
-- Order amount and weight constraints
+### Key Design Patterns
 
-### Internationalization
-Translation files in `i18n/` directory support English, Spanish, and French. All user-facing strings use `__()` translation functions.
+- **Service-Oriented Architecture**: Business logic separated into services
+- **Dependency Injection**: All dependencies injected via constructor
+- **Interface Segregation**: Service contracts define clear APIs
+- **Caching Strategy**: Rate caching to improve performance
+
+## File Structure
+
+```
+app/code/CustomShipping/Method/
+├── Api/                     # Service contracts
+├── Model/                   # Business logic
+│   ├── Cache/              # Caching implementation
+│   ├── Carrier/            # Main carrier class
+│   └── Data/               # Data models
+├── Test/Unit/              # Unit tests
+├── etc/                    # Configuration
+├── i18n/                   # Translations (EN, ES, FR)
+└── Setup/Patch/Data/       # Installation patches
+```
+
+## Development Guidelines
+
+### Adding New Features
+
+1. **Service Contracts First**: Define interfaces in `Api/` directory
+2. **Implementation**: Add business logic in `Model/` directory
+3. **Dependency Injection**: Register services in `etc/di.xml`
+4. **Testing**: Add unit tests in `Test/Unit/`
+5. **Configuration**: Update `etc/adminhtml/system.xml` for admin options
+
+### Configuration Changes
+
+After modifying configuration files:
+```bash
+php bin/magento cache:flush
+php bin/magento setup:di:compile
+```
+
+### Testing Requirements
+
+- All new business logic must have unit tests
+- Test configuration: `Test/Unit/phpunit.xml`
+- Use Magento's testing framework and mocking utilities
+- Focus on testing business rules and edge cases
 
 ### Error Handling
-- Service layer throws `LocalizedException` for business logic errors
-- Carrier returns error results with descriptive messages from service validation
-- Dedicated logging to `/var/log/custom_shipping.log`
 
-## File Modifications Impact
+- All errors logged to `/var/log/custom_shipping.log`
+- Use Magento's logger interface: `\Psr\Log\LoggerInterface`
+- Provide meaningful error messages for administrators
+- Handle exceptions gracefully in rate calculations
 
-### When modifying service contracts (`Api/`):
-- Update corresponding implementations in `Model/`
-- Update unit tests in `Test/Unit/`
-- Consider backward compatibility for any existing integrations
+## Common Development Tasks
 
-### When modifying rate calculation logic:
-- Update `Model/ShippingCalculator.php` 
-- Add corresponding test cases
-- Clear shipping rate cache: `php bin/magento cache:clean custom_shipping_rates`
+### Modifying Shipping Logic
+- Edit `Model/ShippingCalculator.php`
+- Update corresponding unit tests
+- Clear cache after changes
 
-### When adding new configuration options:
-- Add fields to `etc/adminhtml/system.xml`
-- Update data patch with default values
-- Update service layer to use new configuration
-- Add admin ACL resources if needed
+### Adding Configuration Options
+- Update `etc/adminhtml/system.xml` for admin UI
+- Add default values in `etc/config.xml`
+- Access via `\Magento\Framework\App\Config\ScopeConfigInterface`
 
-## Quality Standards
+### Performance Optimization
+- Leverage `ShippingRateCache` for expensive calculations
+- Use lazy loading for heavy dependencies
+- Profile with Magento's built-in profiler
 
-This codebase follows enterprise Magento 2 standards:
-- Modern dependency injection patterns (no underscore prefixes)
-- Service contracts for extensibility
-- Comprehensive error handling with proper exceptions
-- 100% unit test coverage for business logic
-- Magento 2.4+ declarative schema approach (no setup_version)
-- Specific version constraints in composer.json
+## Platform Requirements
+
+- **Magento**: 2.4.0+
+- **PHP**: 8.1, 8.2, or 8.3
+- **Framework**: Standard Magento 2 module structure
+- **Testing**: PHPUnit for unit tests

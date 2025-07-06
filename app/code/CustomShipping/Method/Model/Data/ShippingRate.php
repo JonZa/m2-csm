@@ -3,6 +3,7 @@
  * Shipping Rate Data Model
  * Implementation of ShippingRateInterface
  */
+declare(strict_types=1);
 
 namespace CustomShipping\Method\Model\Data;
 

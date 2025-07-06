@@ -2,6 +2,7 @@
 /**
  * Data patch for installing default shipping method configuration
  */
+declare(strict_types=1);
 
 namespace CustomShipping\Method\Setup\Patch\Data;
 
@@ -66,7 +67,8 @@ class InstallDefaultConfiguration implements DataPatchInterface
             'carriers/customshipping/min_order_amount' => '0',
             'carriers/customshipping/max_order_amount' => '0',
             'carriers/customshipping/free_shipping_threshold' => '100.00',
-            'carriers/customshipping/max_weight' => '50.00'
+            'carriers/customshipping/max_weight' => '50.00',
+            'carriers/customshipping/cache_lifetime' => '3600'
         ];
 
         // Write configuration to core_config_data table

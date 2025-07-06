@@ -3,6 +3,7 @@
  * Shipping Calculator Service Implementation
  * Handles all shipping rate calculation logic
  */
+declare(strict_types=1);
 
 namespace CustomShipping\Method\Model;
 

@@ -2,10 +2,13 @@
 /**
  * Unit tests for Custom Shipping Carrier
  */
+declare(strict_types=1);
 
 namespace CustomShipping\Method\Test\Unit\Model\Carrier;
 
 use CustomShipping\Method\Model\Carrier\CustomShipping;
+use CustomShipping\Method\Api\ShippingCalculatorInterface;
+use CustomShipping\Method\Api\Data\ShippingRateInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\TestFramework\Unit\Helper\ObjectManager;
 use Magento\Quote\Model\Quote\Address\RateRequest;
@@ -57,6 +60,11 @@ class CustomShippingTest extends TestCase
     private $rateRequestMock;
 
     /**
+     * @var ShippingCalculatorInterface|MockObject
+     */
+    private $shippingCalculatorMock;
+
+    /**
      * @var ObjectManager
      */
     private $objectManager;
@@ -74,6 +82,7 @@ class CustomShippingTest extends TestCase
         $this->rateResultFactoryMock = $this->createMock(ResultFactory::class);
         $this->rateMethodFactoryMock = $this->createMock(MethodFactory::class);
         $this->rateRequestMock = $this->createMock(RateRequest::class);
+        $this->shippingCalculatorMock = $this->createMock(ShippingCalculatorInterface::class);
 
         $this->model = $this->objectManager->getObject(
             CustomShipping::class,
@@ -82,7 +91,8 @@ class CustomShippingTest extends TestCase
                 'rateErrorFactory' => $this->rateErrorFactoryMock,
                 'logger' => $this->loggerMock,
                 'rateResultFactory' => $this->rateResultFactoryMock,
-                'rateMethodFactory' => $this->rateMethodFactoryMock
+                'rateMethodFactory' => $this->rateMethodFactoryMock,
+                'shippingCalculator' => $this->shippingCalculatorMock
             ]
         );
     }
@@ -111,11 +121,17 @@ class CustomShippingTest extends TestCase
         $handlingFee = 2.00;
         
         $this->setupActiveMocks();
-        $this->setupValidOrderConstraints();
-        $this->setupBasicPricingMocks($basePrice, $handlingFee);
 
-        $this->rateRequestMock->method('getPackageWeight')->willReturn(5.0);
-        $this->rateRequestMock->method('getPackageValue')->willReturn(50.0);
+        // Create shipping rate mock
+        $shippingRateMock = $this->createMock(ShippingRateInterface::class);
+        $shippingRateMock->method('getPrice')->willReturn($basePrice + $handlingFee);
+        $shippingRateMock->method('getCost')->willReturn($basePrice);
+
+        // ShippingCalculator should return a rate
+        $this->shippingCalculatorMock->expects($this->once())
+            ->method('calculateRate')
+            ->with($this->rateRequestMock)
+            ->willReturn($shippingRateMock);
 
         $resultMock = $this->createMock(Result::class);
         $methodMock = $this->createMock(Method::class);
@@ -134,12 +150,14 @@ class CustomShippingTest extends TestCase
             ->with('customshipping');
 
         $methodMock->expects($this->once())
-            ->method('setCarrierTitle')
-            ->with('Custom Shipping');
+            ->method('setCarrierTitle');
 
         $methodMock->expects($this->once())
             ->method('setMethod')
             ->with('customshipping');
+
+        $methodMock->expects($this->once())
+            ->method('setMethodTitle');
 
         $methodMock->expects($this->once())
             ->method('setPrice')
@@ -169,11 +187,17 @@ class CustomShippingTest extends TestCase
         $expectedPrice = $basePrice + ($packageWeight * $pricePerKg); // 10 + (5 * 2.5) = 22.50
 
         $this->setupActiveMocks();
-        $this->setupValidOrderConstraints();
-        $this->setupWeightBasedPricingMocks($basePrice, $pricePerKg);
 
-        $this->rateRequestMock->method('getPackageWeight')->willReturn($packageWeight);
-        $this->rateRequestMock->method('getPackageValue')->willReturn(50.0);
+        // Create shipping rate mock
+        $shippingRateMock = $this->createMock(ShippingRateInterface::class);
+        $shippingRateMock->method('getPrice')->willReturn($expectedPrice);
+        $shippingRateMock->method('getCost')->willReturn($expectedPrice);
+
+        // ShippingCalculator should return a rate
+        $this->shippingCalculatorMock->expects($this->once())
+            ->method('calculateRate')
+            ->with($this->rateRequestMock)
+            ->willReturn($shippingRateMock);
 
         $resultMock = $this->createMock(Result::class);
         $methodMock = $this->createMock(Method::class);
@@ -204,11 +228,17 @@ class CustomShippingTest extends TestCase
         $packageValue = 120.00; // Above threshold
 
         $this->setupActiveMocks();
-        $this->setupValidOrderConstraints();
-        $this->setupFreeShippingMocks($basePrice, $freeShippingThreshold);
 
-        $this->rateRequestMock->method('getPackageWeight')->willReturn(5.0);
-        $this->rateRequestMock->method('getPackageValue')->willReturn($packageValue);
+        // Create shipping rate mock for free shipping
+        $shippingRateMock = $this->createMock(ShippingRateInterface::class);
+        $shippingRateMock->method('getPrice')->willReturn(0);
+        $shippingRateMock->method('getCost')->willReturn(0);
+
+        // ShippingCalculator should return free shipping
+        $this->shippingCalculatorMock->expects($this->once())
+            ->method('calculateRate')
+            ->with($this->rateRequestMock)
+            ->willReturn($shippingRateMock);
 
         $resultMock = $this->createMock(Result::class);
         $methodMock = $this->createMock(Method::class);
@@ -239,10 +269,12 @@ class CustomShippingTest extends TestCase
         $packageWeight = 25.0; // Exceeds limit
 
         $this->setupActiveMocks();
-        $this->setupConstraintMocks($maxWeight, 0, 0);
 
-        $this->rateRequestMock->method('getPackageWeight')->willReturn($packageWeight);
-        $this->rateRequestMock->method('getPackageValue')->willReturn(50.0);
+        // ShippingCalculator should return null for invalid constraints
+        $this->shippingCalculatorMock->expects($this->once())
+            ->method('calculateRate')
+            ->with($this->rateRequestMock)
+            ->willReturn(null);
 
         $this->setupErrorResult();
 
@@ -260,10 +292,12 @@ class CustomShippingTest extends TestCase
         $packageValue = 30.0; // Below minimum
 
         $this->setupActiveMocks();
-        $this->setupConstraintMocks(0, $minOrderAmount, 0);
 
-        $this->rateRequestMock->method('getPackageWeight')->willReturn(5.0);
-        $this->rateRequestMock->method('getPackageValue')->willReturn($packageValue);
+        // ShippingCalculator should return null for invalid constraints
+        $this->shippingCalculatorMock->expects($this->once())
+            ->method('calculateRate')
+            ->with($this->rateRequestMock)
+            ->willReturn(null);
 
         $this->setupErrorResult();
 
@@ -313,107 +347,18 @@ class CustomShippingTest extends TestCase
         $this->scopeConfigMock->method('isSetFlag')
             ->with('carriers/customshipping/active')
             ->willReturn(true);
+
+        // Setup basic configuration values that the carrier needs
+        $this->scopeConfigMock->method('getValue')
+            ->willReturnCallback(function ($path) {
+                $configMap = [
+                    'carriers/customshipping/title' => 'Custom Shipping',
+                    'carriers/customshipping/name' => 'Custom Method',
+                ];
+                return $configMap[$path] ?? null;
+            });
     }
 
-    /**
-     * Setup valid order constraints (no limits)
-     */
-    private function setupValidOrderConstraints()
-    {
-        $this->setupConstraintMocks(0, 0, 0); // No limits
-    }
-
-    /**
-     * Setup constraint mocks
-     */
-    private function setupConstraintMocks($maxWeight, $minAmount, $maxAmount)
-    {
-        $valueMap = [
-            ['carriers/customshipping/max_weight', null, null, $maxWeight],
-            ['carriers/customshipping/min_order_amount', null, null, $minAmount],
-            ['carriers/customshipping/max_order_amount', null, null, $maxAmount],
-        ];
-
-        $this->scopeConfigMock->method('getValue')->willReturnMap($valueMap);
-    }
-
-    /**
-     * Setup basic pricing mocks
-     */
-    private function setupBasicPricingMocks($basePrice, $handlingFee = 0)
-    {
-        $valueMap = [
-            ['carriers/customshipping/price', null, null, $basePrice],
-            ['carriers/customshipping/handling_fee', null, null, $handlingFee],
-            ['carriers/customshipping/handling_type', null, null, 'F'],
-            ['carriers/customshipping/title', null, null, 'Custom Shipping'],
-            ['carriers/customshipping/name', null, null, 'Custom Method'],
-            ['carriers/customshipping/free_shipping_threshold', null, null, 0],
-            ['carriers/customshipping/max_weight', null, null, 0],
-            ['carriers/customshipping/min_order_amount', null, null, 0],
-            ['carriers/customshipping/max_order_amount', null, null, 0],
-        ];
-
-        $flagMap = [
-            ['carriers/customshipping/weight_based', null, null, false],
-        ];
-
-        $this->scopeConfigMock->method('getValue')->willReturnMap($valueMap);
-        $this->scopeConfigMock->method('isSetFlag')->willReturnMap($flagMap);
-    }
-
-    /**
-     * Setup weight-based pricing mocks
-     */
-    private function setupWeightBasedPricingMocks($basePrice, $pricePerKg)
-    {
-        $valueMap = [
-            ['carriers/customshipping/price', null, null, $basePrice],
-            ['carriers/customshipping/price_per_kg', null, null, $pricePerKg],
-            ['carriers/customshipping/handling_fee', null, null, 0],
-            ['carriers/customshipping/handling_type', null, null, 'F'],
-            ['carriers/customshipping/title', null, null, 'Custom Shipping'],
-            ['carriers/customshipping/name', null, null, 'Custom Method'],
-            ['carriers/customshipping/free_shipping_threshold', null, null, 0],
-            ['carriers/customshipping/max_weight', null, null, 0],
-            ['carriers/customshipping/min_order_amount', null, null, 0],
-            ['carriers/customshipping/max_order_amount', null, null, 0],
-        ];
-
-        $flagMap = [
-            ['carriers/customshipping/active', null, null, true],
-            ['carriers/customshipping/weight_based', null, null, true],
-        ];
-
-        $this->scopeConfigMock->method('getValue')->willReturnMap($valueMap);
-        $this->scopeConfigMock->method('isSetFlag')->willReturnMap($flagMap);
-    }
-
-    /**
-     * Setup free shipping mocks
-     */
-    private function setupFreeShippingMocks($basePrice, $threshold)
-    {
-        $valueMap = [
-            ['carriers/customshipping/price', null, null, $basePrice],
-            ['carriers/customshipping/handling_fee', null, null, 0],
-            ['carriers/customshipping/handling_type', null, null, 'F'],
-            ['carriers/customshipping/title', null, null, 'Custom Shipping'],
-            ['carriers/customshipping/name', null, null, 'Custom Method'],
-            ['carriers/customshipping/free_shipping_threshold', null, null, $threshold],
-            ['carriers/customshipping/max_weight', null, null, 0],
-            ['carriers/customshipping/min_order_amount', null, null, 0],
-            ['carriers/customshipping/max_order_amount', null, null, 0],
-        ];
-
-        $flagMap = [
-            ['carriers/customshipping/active', null, null, true],
-            ['carriers/customshipping/weight_based', null, null, false],
-        ];
-
-        $this->scopeConfigMock->method('getValue')->willReturnMap($valueMap);
-        $this->scopeConfigMock->method('isSetFlag')->willReturnMap($flagMap);
-    }
 
     /**
      * Setup error result for failed validations

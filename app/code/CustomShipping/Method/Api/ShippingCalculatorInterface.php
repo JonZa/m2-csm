@@ -3,6 +3,7 @@
  * Shipping Calculator Service Contract
  * Provides abstraction for shipping rate calculations
  */
+declare(strict_types=1);
 
 namespace CustomShipping\Method\Api;
 

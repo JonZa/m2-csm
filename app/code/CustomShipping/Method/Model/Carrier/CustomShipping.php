@@ -2,6 +2,7 @@
 /**
  * Custom Shipping Carrier Model
  */
+declare(strict_types=1);
 
 namespace CustomShipping\Method\Model\Carrier;
 
@@ -163,7 +164,7 @@ class CustomShipping extends AbstractCarrier implements CarrierInterface
      */
     public function getAllowedMethods()
     {
-        return [$this->_code => $this->getConfigData('name')];}
+        return [$this->_code => $this->getConfigData('name')];
     }
 
     /**

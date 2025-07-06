@@ -17,7 +17,7 @@
     <!-- Virtual Type for Rate Cache -->
     <virtualType name="CustomShipping\Method\Cache\Type\ShippingRate" type="Magento\Framework\Cache\Frontend\Decorator\TagScope">
         <arguments>
-            <argument name="backend" xsi:type="object">Magento\Framework\App\Cache\Type\FrontendPool</argument>
+            <argument name="backend" xsi:type="object">Magento\Framework\App\Cache\Frontend\Pool</argument>
             <argument name="backendOptions" xsi:type="array">
                 <item name="cache_dir" xsi:type="string">var</item>
             </argument>
@@ -29,6 +29,7 @@
     <type name="CustomShipping\Method\Model\Cache\ShippingRateCache">
         <arguments>
             <argument name="logger" xsi:type="object">CustomShipping\Method\Logger</argument>
+            <argument name="scopeConfig" xsi:type="object">Magento\Framework\App\Config\ScopeConfigInterface</argument>
         </arguments>
     </type>
 
