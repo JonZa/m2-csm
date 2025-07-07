@@ -110,6 +110,16 @@ app/code/CustomShipping/Method/
 4. **Testing**: Add unit tests in `Test/Unit/`
 5. **Configuration**: Update `etc/adminhtml/system.xml` for admin options
 
+### Important Testing Notes
+
+- **Cache Service Tests**: The `ShippingRateCache` class now uses constructor injection with:
+  - `Magento\Framework\App\Cache\Frontend\Pool`
+  - `Magento\Framework\Serialize\SerializerInterface`
+  - `Psr\Log\LoggerInterface`
+  - `Magento\Framework\App\Config\ScopeConfigInterface`
+- **Method Names**: Cache service uses `getCachedRate()` and `saveRate()` methods (not `load()` and `save()`)
+- **Return Types**: `getCachedRate()` returns `?float`, not a ShippingRateInterface object
+
 ### Configuration Changes
 
 After modifying configuration files:
@@ -131,6 +141,12 @@ php bin/magento setup:di:compile
 - Use Magento's logger interface: `\Psr\Log\LoggerInterface`
 - Provide meaningful error messages for administrators
 - Handle exceptions gracefully in rate calculations
+
+### Module Configuration Notes
+
+- **Default State**: Module is disabled by default (`active` = 0 in `etc/config.xml`)
+- **ACL Resources**: Properly defined in `etc/acl.xml` as `CustomShipping_Method::config`
+- **Cache Lifetime**: Configurable via admin panel (default: 3600 seconds/1 hour)
 
 ## Common Development Tasks
 
