@@ -184,12 +184,10 @@ class ShippingRateCacheTest extends TestCase
         $calculationDetails = ['base_price' => 20.00, 'handling' => 5.00];
         $lifetime = 3600; // 1 hour
 
-        $this->shippingRateMock->method('getPrice')->willReturn($price);
-        $this->shippingRateMock->method('getCost')->willReturn($cost);
-
         $expectedData = [
-            'price' => $price,
-            'cost' => $cost
+            'rate' => $rate,
+            'calculation_details' => $calculationDetails,
+            'timestamp' => time()
         ];
 
         $serializedData = json_encode($expectedData);
