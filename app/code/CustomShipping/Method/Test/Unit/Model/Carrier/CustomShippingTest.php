@@ -150,14 +150,16 @@ class CustomShippingTest extends TestCase
             ->with('customshipping');
 
         $methodMock->expects($this->once())
-            ->method('setCarrierTitle');
+            ->method('setCarrierTitle')
+            ->with('Custom Shipping');
 
         $methodMock->expects($this->once())
             ->method('setMethod')
             ->with('customshipping');
 
         $methodMock->expects($this->once())
-            ->method('setMethodTitle');
+            ->method('setMethodTitle')
+            ->with('Custom Method');
 
         $methodMock->expects($this->once())
             ->method('setPrice')

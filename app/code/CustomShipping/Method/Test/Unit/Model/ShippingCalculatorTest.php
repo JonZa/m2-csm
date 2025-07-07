@@ -357,20 +357,16 @@ class ShippingCalculatorTest extends TestCase
     {
         $this->scopeConfigMock->method('getValue')
             ->willReturnCallback(function($path) use ($maxWeight) {
-                if ($path === 'carriers/customshipping/max_weight') {
-                    return $maxWeight;
-                }
-                return $this->returnCallback(function($path) {
-                    $map = [
-                        'carriers/customshipping/price' => 10,
-                        'carriers/customshipping/handling_fee' => 0,
-                        'carriers/customshipping/handling_type' => 'F',
-                        'carriers/customshipping/free_shipping_threshold' => 0,
-                        'carriers/customshipping/min_order_amount' => 0,
-                        'carriers/customshipping/max_order_amount' => 0,
-                    ];
-                    return $map[$path] ?? null;
-                })->invoke($path);
+                $map = [
+                    'carriers/customshipping/max_weight' => $maxWeight,
+                    'carriers/customshipping/price' => 10,
+                    'carriers/customshipping/handling_fee' => 0,
+                    'carriers/customshipping/handling_type' => 'F',
+                    'carriers/customshipping/free_shipping_threshold' => 0,
+                    'carriers/customshipping/min_order_amount' => 0,
+                    'carriers/customshipping/max_order_amount' => 0,
+                ];
+                return $map[$path] ?? null;
             });
     }
 

@@ -9,7 +9,9 @@ namespace CustomShipping\Method\Test\Unit\Model\Cache;
 use CustomShipping\Method\Model\Cache\ShippingRateCache;
 use CustomShipping\Method\Api\Data\ShippingRateInterface;
 use CustomShipping\Method\Api\Data\ShippingRateInterfaceFactory;
-use Magento\Framework\App\CacheInterface;
+use Magento\Framework\App\Cache\Frontend\Pool;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Cache\FrontendInterface;
 use Magento\Framework\Serialize\SerializerInterface;
 use Magento\Quote\Model\Quote\Address\RateRequest;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -24,9 +26,14 @@ class ShippingRateCacheTest extends TestCase
     private $cache;
 
     /**
-     * @var CacheInterface|MockObject
+     * @var Pool|MockObject
      */
-    private $cacheInterfaceMock;
+    private $cacheFrontendPoolMock;
+
+    /**
+     * @var FrontendInterface|MockObject
+     */
+    private $cacheFrontendMock;
 
     /**
      * @var SerializerInterface|MockObject
@@ -34,14 +41,14 @@ class ShippingRateCacheTest extends TestCase
     private $serializerMock;
 
     /**
-     * @var ShippingRateInterfaceFactory|MockObject
-     */
-    private $shippingRateFactoryMock;
-
-    /**
      * @var LoggerInterface|MockObject
      */
     private $loggerMock;
+
+    /**
+     * @var ScopeConfigInterface|MockObject
+     */
+    private $scopeConfigMock;
 
     /**
      * @var RateRequest|MockObject
@@ -55,34 +62,41 @@ class ShippingRateCacheTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->cacheInterfaceMock = $this->createMock(CacheInterface::class);
+        $this->cacheFrontendPoolMock = $this->createMock(Pool::class);
+        $this->cacheFrontendMock = $this->createMock(FrontendInterface::class);
         $this->serializerMock = $this->createMock(SerializerInterface::class);
-        $this->shippingRateFactoryMock = $this->createMock(ShippingRateInterfaceFactory::class);
         $this->loggerMock = $this->createMock(LoggerInterface::class);
+        $this->scopeConfigMock = $this->createMock(ScopeConfigInterface::class);
         $this->rateRequestMock = $this->createMock(RateRequest::class);
         $this->shippingRateMock = $this->createMock(ShippingRateInterface::class);
 
+        // Setup cache frontend pool to return our cache frontend mock
+        $this->cacheFrontendPoolMock->expects($this->once())
+            ->method('get')
+            ->with(\Magento\Framework\App\Cache\Type\Config::TYPE_IDENTIFIER)
+            ->willReturn($this->cacheFrontendMock);
+
         $this->cache = new ShippingRateCache(
-            $this->cacheInterfaceMock,
+            $this->cacheFrontendPoolMock,
             $this->serializerMock,
-            $this->shippingRateFactoryMock,
-            $this->loggerMock
+            $this->loggerMock,
+            $this->scopeConfigMock
         );
     }
 
     /**
      * Test loading rate from cache - cache hit
      */
-    public function testLoadCacheHit()
+    public function testGetCachedRateCacheHit()
     {
         $cacheKey = $this->setupCacheKey();
         $cachedData = [
-            'price' => 15.50,
-            'cost' => 12.00
+            'rate' => 15.50,
+            'calculation_details' => ['base_price' => 10.00, 'handling' => 5.50]
         ];
         $serializedData = json_encode($cachedData);
 
-        $this->cacheInterfaceMock->expects($this->once())
+        $this->cacheFrontendMock->expects($this->once())
             ->method('load')
             ->with($cacheKey)
             ->willReturn($serializedData);
@@ -92,37 +106,29 @@ class ShippingRateCacheTest extends TestCase
             ->with($serializedData)
             ->willReturn($cachedData);
 
-        $this->shippingRateFactoryMock->expects($this->once())
-            ->method('create')
-            ->willReturn($this->shippingRateMock);
-
-        $this->shippingRateMock->expects($this->once())
-            ->method('setPrice')
-            ->with($cachedData['price'])
-            ->willReturnSelf();
-
-        $this->shippingRateMock->expects($this->once())
-            ->method('setCost')
-            ->with($cachedData['cost'])
-            ->willReturnSelf();
-
         $this->loggerMock->expects($this->once())
             ->method('debug')
-            ->with($this->stringContains('Cache hit'));
+            ->with(
+                'Cache hit for shipping rate',
+                [
+                    'cache_key' => $cacheKey,
+                    'rate' => $cachedData['rate']
+                ]
+            );
 
-        $result = $this->cache->load($this->rateRequestMock);
+        $result = $this->cache->getCachedRate($this->rateRequestMock);
 
-        $this->assertSame($this->shippingRateMock, $result);
+        $this->assertEquals(15.50, $result);
     }
 
     /**
      * Test loading rate from cache - cache miss
      */
-    public function testLoadCacheMiss()
+    public function testGetCachedRateCacheMiss()
     {
         $cacheKey = $this->setupCacheKey();
 
-        $this->cacheInterfaceMock->expects($this->once())
+        $this->cacheFrontendMock->expects($this->once())
             ->method('load')
             ->with($cacheKey)
             ->willReturn(false);
@@ -130,14 +136,7 @@ class ShippingRateCacheTest extends TestCase
         $this->serializerMock->expects($this->never())
             ->method('unserialize');
 
-        $this->shippingRateFactoryMock->expects($this->never())
-            ->method('create');
-
-        $this->loggerMock->expects($this->once())
-            ->method('debug')
-            ->with($this->stringContains('Cache miss'));
-
-        $result = $this->cache->load($this->rateRequestMock);
+        $result = $this->cache->getCachedRate($this->rateRequestMock);
 
         $this->assertNull($result);
     }
@@ -145,12 +144,12 @@ class ShippingRateCacheTest extends TestCase
     /**
      * Test loading with invalid cached data
      */
-    public function testLoadInvalidCachedData()
+    public function testGetCachedRateInvalidData()
     {
         $cacheKey = $this->setupCacheKey();
         $invalidData = 'invalid_json_data';
 
-        $this->cacheInterfaceMock->expects($this->once())
+        $this->cacheFrontendMock->expects($this->once())
             ->method('load')
             ->with($cacheKey)
             ->willReturn($invalidData);
@@ -161,10 +160,16 @@ class ShippingRateCacheTest extends TestCase
             ->willThrowException(new \InvalidArgumentException('Unable to unserialize'));
 
         $this->loggerMock->expects($this->once())
-            ->method('error')
-            ->with($this->stringContains('Failed to unserialize'));
+            ->method('warning')
+            ->with(
+                'Failed to retrieve cached shipping rate',
+                [
+                    'cache_key' => $cacheKey,
+                    'error' => 'Unable to unserialize'
+                ]
+            );
 
-        $result = $this->cache->load($this->rateRequestMock);
+        $result = $this->cache->getCachedRate($this->rateRequestMock);
 
         $this->assertNull($result);
     }
@@ -172,11 +177,11 @@ class ShippingRateCacheTest extends TestCase
     /**
      * Test saving rate to cache
      */
-    public function testSave()
+    public function testSaveRate()
     {
         $cacheKey = $this->setupCacheKey();
-        $price = 25.00;
-        $cost = 20.00;
+        $rate = 25.00;
+        $calculationDetails = ['base_price' => 20.00, 'handling' => 5.00];
         $lifetime = 3600; // 1 hour
 
         $this->shippingRateMock->method('getPrice')->willReturn($price);
@@ -194,7 +199,7 @@ class ShippingRateCacheTest extends TestCase
             ->with($expectedData)
             ->willReturn($serializedData);
 
-        $this->cacheInterfaceMock->expects($this->once())
+        $this->cacheFrontendMock->expects($this->once())
             ->method('save')
             ->with(
                 $serializedData,
@@ -224,7 +229,7 @@ class ShippingRateCacheTest extends TestCase
             ->method('serialize')
             ->willThrowException(new \InvalidArgumentException('Cannot serialize'));
 
-        $this->cacheInterfaceMock->expects($this->never())
+        $this->cacheFrontendMock->expects($this->never())
             ->method('save');
 
         $this->loggerMock->expects($this->once())
@@ -235,79 +240,81 @@ class ShippingRateCacheTest extends TestCase
     }
 
     /**
-     * Test cache key generation
+     * Test cache with different scope config values
      */
-    public function testGenerateCacheKey()
+    public function testCacheLifetimeConfiguration()
     {
-        $weight = 5.5;
-        $value = 100.00;
-        $destCountry = 'US';
-        $destRegion = 'CA';
-        $destPostcode = '90210';
-        $storeId = 1;
-        $websiteId = 1;
-        $customerGroupId = 1;
-        $currencyCode = 'USD';
+        $cacheKey = $this->setupCacheKey();
+        $rate = 15.00;
+        $customLifetime = 7200; // 2 hours
 
-        $this->rateRequestMock->method('getPackageWeight')->willReturn($weight);
-        $this->rateRequestMock->method('getPackageValue')->willReturn($value);
-        $this->rateRequestMock->method('getDestCountryId')->willReturn($destCountry);
-        $this->rateRequestMock->method('getDestRegionId')->willReturn($destRegion);
-        $this->rateRequestMock->method('getDestPostcode')->willReturn($destPostcode);
-        $this->rateRequestMock->method('getStoreId')->willReturn($storeId);
-        $this->rateRequestMock->method('getWebsiteId')->willReturn($websiteId);
-        
-        // Mock customer group ID through store
-        $storeMock = $this->createMock(\Magento\Store\Model\Store::class);
-        $storeMock->method('getCurrentCurrencyCode')->willReturn($currencyCode);
-        $this->rateRequestMock->method('getData')
-            ->with('customer_group_id')
-            ->willReturn($customerGroupId);
-
-        $keyData = [
-            'package_weight' => $weight,
-            'package_value' => $value,
-            'dest_country' => $destCountry,
-            'dest_region' => $destRegion,
-            'dest_postcode' => $destPostcode,
-            'store_id' => $storeId,
-            'website_id' => $websiteId,
-            'customer_group_id' => $customerGroupId
-        ];
-
-        $serializedKeyData = json_encode($keyData);
-        $expectedHash = hash('sha256', $serializedKeyData);
-        $expectedKey = 'custom_shipping_rate_' . $expectedHash;
+        // Test with custom lifetime from config
+        $this->scopeConfigMock->expects($this->once())
+            ->method('getValue')
+            ->with(
+                'carriers/customshipping/cache_lifetime',
+                \Magento\Store\Model\ScopeInterface::SCOPE_STORE
+            )
+            ->willReturn($customLifetime);
 
         $this->serializerMock->expects($this->once())
             ->method('serialize')
-            ->with($keyData)
-            ->willReturn($serializedKeyData);
+            ->willReturn('serialized_data');
 
-        // Use reflection to test private method
-        $reflection = new \ReflectionClass($this->cache);
-        $method = $reflection->getMethod('generateCacheKey');
-        $method->setAccessible(true);
+        $this->cacheFrontendMock->expects($this->once())
+            ->method('save')
+            ->with(
+                'serialized_data',
+                $cacheKey,
+                $this->anything(),
+                $customLifetime
+            )
+            ->willReturn(true);
 
-        $result = $method->invoke($this->cache, $this->rateRequestMock);
-
-        $this->assertEquals($expectedKey, $result);
+        $result = $this->cache->saveRate($this->rateRequestMock, $rate);
+        $this->assertTrue($result);
     }
 
     /**
-     * Test clearing cache
+     * Test clearing all cache
      */
-    public function testClearCache()
+    public function testClearAllCache()
     {
-        $this->cacheInterfaceMock->expects($this->once())
+        $this->cacheFrontendMock->expects($this->once())
             ->method('clean')
-            ->with(['custom_shipping_rates']);
+            ->with()
+            ->willReturn(true);
 
-        $this->loggerMock->expects($this->once())
-            ->method('info')
-            ->with('Custom shipping rates cache cleared');
+        $result = $this->cache->clearCache();
+        $this->assertTrue($result);
+    }
 
-        $this->cache->clearCache();
+    /**
+     * Test clearing cache for specific request
+     */
+    public function testClearCacheForSpecificRequest()
+    {
+        $this->setupCacheKey();
+        
+        // Set up expectations for getCacheTags
+        $this->rateRequestMock->method('getDestCountryId')->willReturn('US');
+        $this->rateRequestMock->method('getDestRegionId')->willReturn('CA');
+        $this->rateRequestMock->method('getStoreId')->willReturn(1);
+
+        $expectedTags = [
+            'custom_shipping_rates',
+            'custom_shipping_country_US',
+            'custom_shipping_region_CA',
+            'custom_shipping_store_1'
+        ];
+
+        $this->cacheFrontendMock->expects($this->once())
+            ->method('clean')
+            ->with('matchingAnyTag', $expectedTags)
+            ->willReturn(true);
+
+        $result = $this->cache->clearCache($this->rateRequestMock);
+        $this->assertTrue($result);
     }
 
     /**
@@ -322,8 +329,7 @@ class ShippingRateCacheTest extends TestCase
         $this->rateRequestMock->method('getDestPostcode')->willReturn('12345');
         $this->rateRequestMock->method('getStoreId')->willReturn(1);
         $this->rateRequestMock->method('getWebsiteId')->willReturn(1);
-        $this->rateRequestMock->method('getData')
-            ->with('customer_group_id')
+        $this->rateRequestMock->method('getCustomerGroupId')
             ->willReturn(1);
 
         $keyData = [
@@ -334,7 +340,7 @@ class ShippingRateCacheTest extends TestCase
             'dest_postcode' => '12345',
             'store_id' => 1,
             'website_id' => 1,
-            'customer_group_id' => 1
+            'customer_group' => 1
         ];
 
         $serializedData = json_encode($keyData);
