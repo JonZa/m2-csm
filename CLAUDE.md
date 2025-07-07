@@ -4,13 +4,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 7 Claude Rules for Collaboration
 
-1. **First think through the problem**, read the codebase for relevant files, and write a plan in todo.md.
+1. **First think through the problem**, read the codebase for relevant files, and write a plan in .claude.local/YYYY-MM-DD-todo.md.
 2. **The plan should have a list of todo items** that you can check off as you complete them
 3. **Before you begin working, check in with me** and I will verify the plan.
 4. **Then, begin working on the todo items**, marking them as complete as you go.
 5. **Please provide a high-level explanation at each step** of what changes you made
 6. **Keep each change minimal** to reduce risk and maintain simplicity.
-7. **Finally, add a review section to the todo.md file** with a summary of the changes you made and any other relevant information.
+7. **Finally, add a review section to the YYYY-MM-DD-todo.md file** with a summary of the changes you made and any other relevant information.
+
+## Todo File System
+
+The 7 Claude Rules use a date-stamped todo file system for better organization and privacy:
+
+- **File Format**: `YYYY-MM-DD-todo.md` (e.g., `2025-07-07-todo.md`)
+- **Location**: Stored in `.claude.local/` folder (gitignored)
+- **Daily Files**: Create a new todo file each day to track daily progress
+- **Privacy**: Todo files are excluded from git commits, keeping planning notes private
+- **History**: Previous todo files are preserved for reference and learning
+
+### Usage
+- Each work session starts with creating/updating today's todo file
+- Use the date format exactly: `YYYY-MM-DD-todo.md`
+- Previous days' todo files remain available in `.claude.local/` for reference
+- The folder is automatically ignored by git, so todos stay private
 
 ## Repository Overview
 
